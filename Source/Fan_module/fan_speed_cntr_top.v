@@ -21,7 +21,8 @@
 
 module fan_speed_cntr_top(
     input clk, reset_p,
-    input [4:0] btn,
+    input btn_speed,
+    input btn_auto,
     inout dht11_data,
     output speed,
     output reg state,
@@ -36,7 +37,7 @@ module fan_speed_cntr_top(
     parameter HIGH = 2; 
     parameter MAX = 3;
     
-    button_cntr btn_cntr_auto(.clk(clk), .reset_p(reset_p), .btn(btn[2]), .btn_ne(auto_en));
+    button_cntr btn_cntr_auto(.clk(clk), .reset_p(reset_p), .btn(btn_auto), .btn_ne(auto_en));
     t_flip_flop_p tff_setmode(.clk(clk), .rst(reset_p), .t(auto_en), .q(auto_onoff)); // auto_en에 따라 auto_onoff 토글
     
     wire [2:0] stage, stage_auto, stage_man;
@@ -47,7 +48,7 @@ module fan_speed_cntr_top(
     wire stage_select;
     assign stage_select = auto_onoff ? 0 : stage_btn; // auto 모드 동작 중에는 power 버튼 입력이 안 되도록
     
-    button_cntr btn_cntr_stage(.clk(clk), .reset_p(reset_p), .btn(btn[1]), .btn_pe(stage_btn));
+    button_cntr btn_cntr_stage(.clk(clk), .reset_p(reset_p), .btn(btn_speed), .btn_pe(stage_btn));
     counter_speed_stage stage_cntr(.clk(clk), .reset_p(reset_p), .btn(stage_select), .dec1(stage_man));
     
     reg [7:0] duty;

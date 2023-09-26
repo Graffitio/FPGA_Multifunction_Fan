@@ -22,7 +22,7 @@
 
 module fan_timer_top(
         input clk, reset_p,
-        input [4:0] btn,
+        input btn_tim,
         input state,
         output [15:0] value_timer,
         output timeout,
@@ -33,7 +33,7 @@ module fan_timer_top(
 
     wire btn_settime, btn_settime_en;
     wire [2:0] cnt;
-    button_cntr bcntr_1mintimer(.clk(clk), .reset_p(reset_p), .btn(btn[4]), .btn_ne(btn_settime_en));
+    button_cntr bcntr_1mintimer(.clk(clk), .reset_p(reset_p), .btn(btn_tim), .btn_ne(btn_settime_en));
     counter_timer_stage tim_stage(.clk(clk), .reset_p(reset_p), .btn(btn_settime), .dec1(cnt)); // 3단 카운터
 
     // Fan이 Run 상태일 때만 Timer 기능이 동작되도록 
