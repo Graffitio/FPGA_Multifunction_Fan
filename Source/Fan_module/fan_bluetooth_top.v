@@ -24,15 +24,20 @@ module bluetooth_rx(
     input clk,         // 클럭 입력
     input reset_p,     // 리셋 신호 입력
     input RX,          // 블루투스에서 수신된 데이터 입력
-    output [7:0] dx_data  // 데이터 출력
+    output [7:0] dx_data,  // 데이터 출력
+    output reg start
 );
     // 9600 bps : 1sec에 9600bit 전송, 1bit에 0.0001041667sec(104,166ns)
     // sys clk : 1sec에 125,000,000bit 전송 1bit에 8ns                          
 //    parameter T = 15'd10414; // 9600 보드레이트에 대한 전송 1비트에 필요한 카운트 값
-    parameter BAUDRATE = 15'd13021; // 9600 보드레이트에 대한 전송 1비트에 필요한 카운트 값
+    parameter BAUDRATE = 15'd13021; // 9600 BAUDRATE에 대한 전송 1비트에 필요한 카운트 값
+//    parameter BAUDRATE = 15'd1628; // 9600 BAUDRATE에 대한 전송 1비트에 필요한 카운트 값
+    
+//    reg [7:0] clk_div;
+//    always @(posedge clk) clk_div = clk_div + 1;
 
-    // 9600 보드레이트에 대한 카운트 값 계산
-    reg start;
+    // 9600 BAUDRATE 에 대한 카운트 값 계산
+    // reg start;
     reg [14:0] cnt;
     always @(posedge clk or posedge reset_p) begin
         if(reset_p) cnt <= 15'd0;
@@ -43,7 +48,7 @@ module bluetooth_rx(
 
     // 데이터 샘플링을 위해 카운트 값을 중간 위치로 설정(통신의 정확도를 높이기 위한 셋팅)
     wire collect;
-    assign collect = (cnt == 15'd6516) ? 1'b1 : 1'b0;
+    assign collect = (cnt == 15'd814) ? 1'b1 : 1'b0;
 
     // 데이터 수신 시 하강 에지 생성(통신이 시작됐다는 의미)
     reg [1:0] start_bit;
@@ -59,6 +64,27 @@ module bluetooth_rx(
     // 하강 에지 검출
     wire neg_edge;
     assign neg_edge = start_bit[1] & ~start_bit[0]; // start_bit[0] = 0, start_bit[1] = 1이면, 하강엣지 검출
+    
+//    reg [7:0] RX_before, RX_after;
+//    reg [3:0] RX_count;
+//    always @(posedge clk or posedge reset_p) begin
+//        if(reset_p) begin
+//            RX_count = 0;
+//        end
+//        else begin
+//            RX_count = RX_count + 1;
+//            case(RX_count)
+//                0 : RX_after[0] = RX;
+//                1 : RX_after[1] = RX;
+//                2 : RX_after[2] = RX;
+//                3 : RX_after[3] = RX;
+//                4 : RX_after[4] = RX;
+//                5 : RX_after[5] = RX;
+//                6 : RX_after[6] = RX;
+//                7 : RX_after[7] = RX;
+//            endcase
+//        end
+//    end
 
     // UART 프로토콜 관련 신호 처리
     reg [3:0] num;
@@ -81,31 +107,37 @@ module bluetooth_rx(
     // 데이터 저장
     reg [7:0] rx_data_temp_r;  // 현재 데이터 수신 레지스터
     reg [7:0] rx_data_r;       // 데이터 락 레지스터
+    
     always @(posedge clk or posedge reset_p) begin
         if(reset_p)	begin	
-            rx_data_r <= 8'd0;
-            rx_data_temp_r <= 8'd0;
-            num <= 4'd0;
+            rx_data_r = 8'd0;
+            rx_data_temp_r = 8'd0;
+            num = 4'd0;
         end
         else if(rx_on) begin
             if(collect) begin
                 num <= num + 1'b1;
                 case(num)
-                    4'd1: rx_data_temp_r[0] <= RX;
-                    4'd2: rx_data_temp_r[1] <= RX;	
-                    4'd3: rx_data_temp_r[2] <= RX;	
-                    4'd4: rx_data_temp_r[3] <= RX;	
-                    4'd5: rx_data_temp_r[4] <= RX;
-                    4'd6: rx_data_temp_r[5] <= RX;	
-                    4'd7: rx_data_temp_r[6] <= RX;	
-                    4'd8: rx_data_temp_r[7] <= RX;	
+                    4'd1: rx_data_temp_r[0] = RX;
+                    4'd2: rx_data_temp_r[1] = RX;	
+                    4'd3: rx_data_temp_r[2] = RX;	
+                    4'd4: rx_data_temp_r[3] = RX;	
+                    4'd5: rx_data_temp_r[4] = RX;
+                    4'd6: rx_data_temp_r[5] = RX;	
+                    4'd7: rx_data_temp_r[6] = RX;	
+                    4'd8: rx_data_temp_r[7] = RX;	
                     default: ;
                 endcase
             end
             else if(num == 4'd10) begin
-                rx_data_r <= rx_data_temp_r;
+                rx_data_r = rx_data_temp_r;
+//                RX_before = rx_data_temp_r;
                 num <= 4'd0;
             end
+//            else if(num == 4'd11) begin
+//                rx_data_temp_r <= 8'b0000_0000;
+                
+//            end
         end
     end
 
@@ -474,7 +506,8 @@ module fan_bluetooth_top(
     .clk(clk),         // 클럭 입력
     .reset_p(reset_p),     // 리셋 신호 입력
     .RX(RX),          // 블루투스에서 수신된 데이터 입력
-    .dx_data(Rx_Byte)  // 데이터 출력
+    .dx_data(Rx_Byte),  // 데이터 출력
+    .start(start)
 );
 
 //  // UART_TX 모듈 인스턴스화
@@ -502,17 +535,100 @@ module fan_bluetooth_top(
 //  assign blue_btn_l[4] = (Rx_Byte == 8'd52) ? 1 : 0;
 //  assign blue_btn_l = (Rx_Byte == 8'd53) ? 6'b000_000 : 0;
 
+//    parameter BAUDRATE = 15'd13021;
+//    reg [15:0] count;
+//    reg count_en;
+//    always@(negedge clk or posedge reset_p) begin
+//        if(reset_p) begin
+//            count = 0;
+//        end
+//        else begin
+//            if(clk && count_en) count = count + 1;
+//            else if(!count_en) count = 0;
+//        end
+//    end
+    
+//    reg [3:0] state, next_state;
+//    always@(negedge clk or posedge reset_p) begin
+//        if(reset_p) begin
+//            state = 0;
+//        end
+//        else begin
+//            state = next_state;
+//        end
+//    end
+
+    edge_detector_n edg(.clk(clk), .cp_in(start), .rst(reset_p), .n_edge(start_nedge));
+
+    // 원인 : 블루투스로 한 번 입력을 하면, 그 입력이 계속 들어 와 있는 상태이다.
+    // 따라서 0으로 초기화를 시켜줘도 다시 그 입력이 적용되어버림.
+    // 그러면 입력을 초기화하는 방법을 적용보는 것이 좋을 것이다.
     always @(posedge clk or posedge reset_p) begin
         if(reset_p) blue_btn_l = 6'b000_000;
+        else if(start_nedge) begin
+            if(Rx_Byte == 8'd48) blue_btn_l = 8'b000_001; // FND 0 0
+            else if(Rx_Byte == 8'd49) blue_btn_l = 6'b000_010; // PWR 1 1
+            else if(Rx_Byte == 8'd50) blue_btn_l = 6'b000_100; // Auto 2 2
+            else if(Rx_Byte == 8'd51) blue_btn_l = 6'b001_000; // LED 3 3
+            else if(Rx_Byte == 8'd52) blue_btn_l = 6'b010_000; // TIM 4 4
+            else if(Rx_Byte == 8'd53) blue_btn_l = 6'b100_000; // 5
+        end 
         else begin
-            if(Rx_Byte == 8'd48) blue_btn_l = 6'b000_000;
-            else if(Rx_Byte == 8'd49) blue_btn_l[0] = 1;
-            else if(Rx_Byte == 8'd50) blue_btn_l[1] = 1;
-            else if(Rx_Byte == 8'd51) blue_btn_l[2] = 1;
-            else if(Rx_Byte == 8'd52) blue_btn_l[3] = 1;
-            else if(Rx_Byte == 8'd53) blue_btn_l[4] = 1;
-            else blue_btn_l = 6'b000_000;
+            blue_btn_l = 6'b000_000;
         end
+                        
+//            else if(Rx_Byte == 8'd49) begin
+//                if(count < 10) begin
+//                    count_en = 1;
+//                    blue_btn_l[0] = 1;
+//                end
+//                else begin
+//                    count_en = 0;
+//                    blue_btn_l = 6'b000_000;
+//                end
+//            end
+//            else if(Rx_Byte == 8'd50) begin
+//                if(count < 10) begin
+//                    count_en = 1;
+//                    blue_btn_l[1] = 1;
+//                end
+//                else begin
+//                    count_en = 0;
+//                    blue_btn_l = 6'b000_000;
+//                end
+//            end            
+//            else if(Rx_Byte == 8'd51) begin 
+//                if(count < 10) begin
+//                    count_en = 1;
+//                    blue_btn_l[2] = 1;
+//                end
+//                else begin
+//                    count_en = 0;
+//                    blue_btn_l = 6'b000_000;
+//                end
+//            end            
+//            else if(Rx_Byte == 8'd52) begin
+//                if(count < 10) begin
+//                    count_en = 1;
+//                    blue_btn_l[3] = 1;
+//                end
+//                else begin
+//                    count_en = 0;
+//                    blue_btn_l = 6'b000_000;
+//                end
+//            end            
+//            else if(Rx_Byte == 8'd53) begin
+//                if(count < 10) begin
+//                    count_en = 1;
+//                    blue_btn_l[4] = 1;
+//                end
+//                else begin
+//                    count_en = 0;
+//                    blue_btn_l = 6'b000_000;
+//                end
+//            end            
+//            else blue_btn_l = 6'b000_000;
+//        end
     end
     
   
@@ -549,52 +665,6 @@ module fan_bluetooth_top(
 //            endcase
 //    end
 //  end
-  
-
-//  button_cntr btn_cntr_blue_0(.clk(clk), .reset_p(reset_p), .btn(blue_btn_l[0]), .btn_pe(blue_btn[0]));
-//  button_cntr btn_cntr_blue_1(.clk(clk), .reset_p(reset_p), .btn(blue_btn_l[1]), .btn_pe(blue_btn[1]));
-//  button_cntr btn_cntr_blue_2(.clk(clk), .reset_p(reset_p), .btn(blue_btn_l[2]), .btn_pe(blue_btn[2]));
-//  button_cntr btn_cntr_blue_3(.clk(clk), .reset_p(reset_p), .btn(blue_btn_l[3]), .btn_pe(blue_btn[3]));
-//  button_cntr btn_cntr_blue_4(.clk(clk), .reset_p(reset_p), .btn(blue_btn_l[4]), .btn_pe(blue_btn[4]));
-//  button_cntr btn_cntr_blue_5(.clk(clk), .reset_p(reset_p), .btn(blue_btn_l[5]), .btn_pe(blue_btn[5]));
-  
-//  assign rx_data = Rx_Byte;
-  
-  
-  
-
-//  always @(posedge clk or posedge reset_p) begin
-//    if (reset_p) begin
-//      led_state <= 1'b0;
-//    end else begin
-//      if (Rx_DataValid) begin
-//        // UART로부터 수신한 데이터를 확인하고, 아무 데이터라도 수신하면 LED를 토글합니다.
-//        led_state <= ~led_state;
-//      end
-//    end
-//  end
-
-  // LED 출력
-//  assign led = led_state;
-
-//    // LED 바 표시 로직
-//    always @(posedge clk or posedge reset_p) begin
-//        if (reset_p) begin
-//            LED_bar <= 4'b0000;
-//        end
-//        else begin
-//            case(Rx_Byte)
-//                8'h30 : LED_bar <= 4'b0001; // 숫자 0일 때 LED_bar[0] 켜기
-//                8'h31 : LED_bar <= 4'b0010; // 숫자 1일 때 LED_bar[1] 켜기
-//                8'h32 : LED_bar <= 4'b0100; // 숫자 2일 때 LED_bar[2] 켜기
-//                8'h33 : LED_bar <= 4'b1000; // 숫자 3일 때 LED_bar[3] 켜기
-//                default : LED_bar <= 4'b0000; // 그 외의 경우 모두 끄기
-//            endcase
-//        end
-//    end
-    
-    
-//  FND_4digit_cntr fnd_cntr(.clk(clk), .rst(reset_p), .value({8'b0000_0000, Rx_Byte}), .com(com), .seg_7(seg_7));
 
 endmodule
 

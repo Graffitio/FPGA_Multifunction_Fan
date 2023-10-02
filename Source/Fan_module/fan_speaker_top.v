@@ -151,7 +151,7 @@ module fan_speaker_top(
         else begin
             case(state)
                 0 : begin
-                    if(cnt_msec < 200) begin
+                    if(cnt_msec < 200) begin // 200
                         cnt_msec_e = 1;
                         freq_buf = birthday[0];
                     end
@@ -172,7 +172,7 @@ module fan_speaker_top(
                     end
                 end
                 2 : begin
-                    if(cnt_msec < 560) begin
+                    if(cnt_msec < 560) begin // 560
                         cnt_msec_e = 1;
                         freq_buf = birthday[2];                        
                     end
@@ -204,7 +204,7 @@ module fan_speaker_top(
                     end
                 end
                 5 : begin
-                    if(cnt_msec < 1120) begin
+                    if(cnt_msec < 1120) begin // 1120
                         cnt_msec_e = 1;
                         freq_buf = birthday[5];
                     end
@@ -424,7 +424,7 @@ module fan_speaker_top(
                     end
                 end
                 25 : begin
-                    if(cnt_msec < 1000) begin
+                    if(cnt_msec < 1120) begin
                         freq_buf = 0;
                         cnt_msec_e = 1;
                     end
@@ -439,5 +439,5 @@ module fan_speaker_top(
     
     wire [13:0] freq;
     assign freq = freq_buf;
-    PWM_100 pwm_sound(.clk(clk), .rstp(reset_p), .duty(80), .pwm_freq(freq), .pwm_100pc(song));
+    PWM_100_song pwm_sound(.clk(clk), .rstp(reset_p), .duty(50), .pwm_freq(freq), .pwm_100pc(song));
 endmodule

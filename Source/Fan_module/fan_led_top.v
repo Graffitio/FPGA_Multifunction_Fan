@@ -27,13 +27,14 @@ module fan_led_top(
     );
     
     wire pwm_pe;
-    button_cntr btn_pwm(.clk(clk), .reset_p(reset_p), .btn(btn_LED), .btn_pe(pwm_pe));
+//    button_cntr btn_pwm(.clk(clk), .reset_p(reset_p), .btn(btn_LED), .btn_pe(pwm_pe));
     
     //버튼을 눌러 링 카운터를 통한 모드 변환   
     reg [4:0] pwm_change;
     always @(posedge clk or posedge reset_p) begin
         if(reset_p) pwm_change = 5'b0_0001;
-        else if(pwm_pe) begin
+//        else if(pwm_pe) begin
+        else if(btn_LED) begin
             if(pwm_change == 5'b0_0001) pwm_change = 5'b0_0010;
             else if (pwm_change == 5'b0_0010) pwm_change = 5'b0_0100;
             else if (pwm_change == 5'b0_0100) pwm_change = 5'b0_1000;
@@ -111,8 +112,8 @@ module fan_led_top(
     assign preq_blue = party_time ? 2 : 100;
     assign preq_green = party_time ? 3 : 100;
                   
-    PWM_1000 led_red(.clk(clk), .rstp(reset_p), .duty(duty_red), .pwm_freq(preq_red), .pwm_1000pc(red));
-    PWM_1000 led_blue(.clk(clk), .rstp(reset_p), .duty(duty_blue), .pwm_freq(preq_blue), .pwm_1000pc(blue));
-    PWM_1000 led_green(.clk(clk), .rstp(reset_p), .duty(duty_green), .pwm_freq(preq_green), .pwm_1000pc(green));                      
+    PWM_1000_led led_red(.clk(clk), .rstp(reset_p), .duty(duty_red), .pwm_freq(preq_red), .pwm_1000pc(red));
+    PWM_1000_led led_blue(.clk(clk), .rstp(reset_p), .duty(duty_blue), .pwm_freq(preq_blue), .pwm_1000pc(blue));
+    PWM_1000_led led_green(.clk(clk), .rstp(reset_p), .duty(duty_green), .pwm_freq(preq_green), .pwm_1000pc(green));                      
 
 endmodule

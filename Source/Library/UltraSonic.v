@@ -70,7 +70,7 @@ module UltraSonic(
     
     // reg echo_flag;
     // reg echo_time;
-//    reg [8:0] distance_buf;
+    reg [8:0] distance_buf;
     reg [15:0] save_st, save_end;
     always@(posedge clk, posedge reset_p) begin
         if(reset_p) begin
@@ -147,7 +147,8 @@ module UltraSonic(
                     endcase
                 end
                 S_READ_DATA : begin
-                        distance <= (save_end-save_st) / 58;
+//                        distance <= (save_end-save_st) / 58;
+                        distance_buf <= save_end-save_st;
                         save_st <= 0;
                         save_end <= 0;
                         count_usec_e <= 0;
@@ -161,10 +162,10 @@ module UltraSonic(
         end
     end
     
-//    always @(negedge clk_usec or posedge reset_p) begin
-//        if(reset_p) distance_buf = 0;
-//        else distance = distance_buf / 58;
-//    end
+    always @(negedge clk_usec or posedge reset_p) begin
+        if(reset_p) distance_buf = 0;
+        else distance = distance_buf / 58;
+    end
 endmodule
 
 //module UltraSonic(
