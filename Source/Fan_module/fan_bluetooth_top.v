@@ -286,6 +286,12 @@ module UART_RX
   
 endmodule // UART_RX
 
+
+
+
+
+
+
 module UART_TX 
   #(parameter CLKS_PER_BIT = 13021)
   (
@@ -439,7 +445,7 @@ module fan_bluetooth_top(
   input clk,           // 클럭 신호
   input reset_p,         // 리셋 신호
   input RX,     // UART 수신 핀 (Bluetooth 모듈에서 데이터 수신)
-  output TX,    // UART 송신 핀 (Bluetooth 모듈로 데이터 송신)
+//  output TX,    // UART 송신 핀 (Bluetooth 모듈로 데이터 송신)
   output reg [5:0] blue_btn_l
 //  output [7:0] rx_data
 //  output led,           // LED 출력
@@ -451,9 +457,9 @@ module fan_bluetooth_top(
   wire Rx_DataValid;        // UART 수신 데이터 유효 여부
   wire [5:0] Rx_Byte;       // UART 수신 데이터
   
-  wire Tx_Active;           // UART 송신 동작 활성화 여부
-  wire Tx_Done;             // UART 송신 완료 여부
-  wire [7:0] Tx_Byte;       // UART 송신 데이터
+//  wire Tx_Active;           // UART 송신 동작 활성화 여부
+//  wire Tx_Done;             // UART 송신 완료 여부
+//  wire [7:0] Tx_Byte;       // UART 송신 데이터
 
 //  // UART_RX 모듈 인스턴스화
 //  UART_RX #(.CLKS_PER_BIT(13021)) rx_inst (
@@ -471,16 +477,16 @@ module fan_bluetooth_top(
     .dx_data(Rx_Byte)  // 데이터 출력
 );
 
-  // UART_TX 모듈 인스턴스화
-  UART_TX #(.CLKS_PER_BIT(13021)) tx_inst (
-    .reset_p(reset_p),
-    .clk(clk),
-    .Tx_DataValid(1'b1),   // 항상 데이터 유효
-    .Tx_Byte(Tx_Byte),
-    .Tx_Active(Tx_Active),
-    .Tx_Done(Tx_Done),
-    .Tx_Serial(TX)
-  );
+//  // UART_TX 모듈 인스턴스화
+//  UART_TX #(.CLKS_PER_BIT(13021)) tx_inst (
+//    .reset_p(reset_p),
+//    .clk(clk),
+//    .Tx_DataValid(1'b1),   // 항상 데이터 유효
+//    .Tx_Byte(Tx_Byte),
+//    .Tx_Active(Tx_Active),
+//    .Tx_Done(Tx_Done),
+//    .Tx_Serial(TX)
+//  );
 
 //  // LED 제어 로직
 //  reg led_state = 1'b0; // LED 초기 상태 (끈 상태)
@@ -593,3 +599,89 @@ module fan_bluetooth_top(
 endmodule
 
 
+module bluetooth_tx(
+  input clk, reset_p,
+  input [7:0] data,
+  output reg TX
+);
+
+    // 125,000,000 / 9,600 = 13,021 
+    parameter BAUDRATE = 15'd13021; // 9600 BAUDRATE에 대한 1비트 전송에 필요한 카운트 값
+
+    // 9600 BAUDRATE에 대한 카운트 값 계산
+    reg start;
+    reg [14:0] cnt;
+    always @(posedge clk or posedge reset_p) begin
+        if(reset_p) cnt <= 15'd0;
+        else if(cnt == BAUDRATE) cnt <= 15'd0; // 1비트 전송되면, 다시 카운트 0으로
+        else if(start) cnt <= cnt + 1'b1; // 전송이 시작되면 카운트 시작
+        else cnt <= 1'b0; // 전송 중이 아니면, 카운터는 0으로 대기
+    end
+
+    // 데이터 샘플링을 위해 카운트 값을 중간 위치로 설정(통신의 정확도를 높이기 위한 셋팅)
+    wire collect;
+    assign collect = (cnt == 15'd6516) ? 1'b1 : 1'b0;
+
+    // 데이터 수신 시 하강 에지 생성(통신이 시작됐다는 의미)
+    reg [1:0] start_bit;
+    always @(posedge clk or posedge reset_p) begin
+        if(reset_p)	
+            start_bit <= 2'b11;
+        else begin
+            start_bit[0] <= TX; // 블루투스 장치에서 통신을 시작하면 첫 bit는 Low로 주고 RX로 받게 된다.
+            start_bit[1] <= start_bit[0];
+        end
+    end
+
+    // 하강 에지 검출
+    wire neg_edge;
+    assign neg_edge = start_bit[1] & ~start_bit[0]; // start_bit[0] = 0, start_bit[1] = 1이면, 하강엣지 검출
+
+    // UART 프로토콜 관련 신호 처리
+    reg [3:0] num;
+    reg tx_on; // 데이터 수신 중인 상태를 나타내는 신호
+    always @(posedge clk or posedge reset_p) begin
+        if(reset_p) begin	
+            start <= 1'b0;	
+            tx_on <= 1'b0;
+        end
+        else if(neg_edge) begin // 하강엣지 검출되면, 통신이 시작되었다는 의미.
+            start <= 1'b1; // 테이터 통신 시작
+            tx_on <= 1'b1; // 수신 상태 중
+        end
+        else if(num == 4'd10) begin // 통신 종료
+            start <= 1'b0;	
+            tx_on <= 1'b0;
+        end
+    end
+
+    // 데이터 저장
+    reg [7:0] tx_data_temp_t;  // 현재 데이터 수신 레지스터
+    reg [7:0] tx_data_t;       // 데이터 락 레지스터
+    always @(posedge clk or posedge reset_p) begin
+        if(reset_p)	begin	
+            tx_data_t <= 8'd0;
+            tx_data_temp_t <= 8'd0;
+            num <= 4'd0;
+        end
+        else if(tx_on) begin
+            if(collect) begin
+                num <= num + 1'b1;
+                case(num)
+                    4'd1: TX <= data[0];
+                    4'd2: TX <= data[1];	
+                    4'd3: TX <= data[2];	
+                    4'd4: TX <= data[3];	
+                    4'd5: TX <= data[4];
+                    4'd6: TX <= data[5];	
+                    4'd7: TX <= data[6];	
+                    4'd8: TX <= data[7];	
+                    default: ;
+                endcase
+            end
+            else if(num == 4'd10) begin
+                num <= 4'd0;
+            end
+        end
+    end
+endmodule
